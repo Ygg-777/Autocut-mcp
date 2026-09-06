@@ -1,0 +1,21 @@
+# ===== 通用自动剪辑 MCP 插件 =====
+# 安装:  python -m pip install -r requirements.txt
+# 运行:  python autocut_mcp.py            (MCP stdio 服务)
+#        python ui_app.py                 (Web 控制台, http://127.0.0.1:8001)
+
+# --- 核心 (必需) ---
+mcp>=1.0.0            # MCP 服务框架
+flask>=3.0.0          # Web 控制台后端
+imageio-ffmpeg>=0.5.0 # 自带 ffmpeg(含 libass, 支持字幕烧录)
+
+# --- 视频/音频分析引擎 (speaker_map / beat_cut / quadsplit) ---
+numpy>=1.24
+opencv-python>=4.8
+mediapipe>=0.10
+scipy>=1.10
+librosa>=0.10
+
+# --- 可选: 语音识别/字幕转录 (transcribe_media) ---
+# 二选一安装其一即可:
+#   pip install faster-whisper      # 推荐: CPU 用 int8 快
+#   pip install openai-whisper      # 备选

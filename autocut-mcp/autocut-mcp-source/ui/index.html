@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autocut · 剪辑控制台</title>
+<style>
+  :root{
+    --bg:#0a0c11; --panel:#12151d; --panel2:#181c26; --line:rgba(148,163,184,.14);
+    --txt:#e9edf5; --txt2:#a7b0c0; --muted:#626d80;
+    --acc:#ffb340; --acc2:#ffd58a; --ok:#3ddc97; --err:#ff5c6c; --info:#6aa9ff;
+    --sans:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+    --r:12px; --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;color:var(--txt);font-family:var(--sans);font-size:13.5px;line-height:1.5;
+    background:
+      radial-gradient(1100px 520px at 88% -12%, rgba(255,179,64,.07), transparent 60%),
+      radial-gradient(900px 480px at -8% 112%, rgba(106,169,255,.05), transparent 55%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:rgba(148,163,184,.18);border-radius:99px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.34);background-clip:content-box;border:2px solid transparent}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  .app{display:flex;flex-direction:column;height:100vh}
+
+  /* ---------- 顶栏 ---------- */
+  header.topbar{display:flex;align-items:center;gap:14px;padding:0 18px;height:56px;flex:none;
+    border-bottom:1px solid var(--line);background:rgba(15,18,25,.72);backdrop-filter:blur(8px)}
+  .brand{display:flex;align-items:center;gap:11px;user-select:none}
+  .brand .logo{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none;
+    background:linear-gradient(135deg,#ffd58a,#ff8a3d);color:#1a0f02;
+    box-shadow:0 4px 16px rgba(255,150,60,.28)}
+  .brand .name{font-weight:800;font-size:15px;letter-spacing:.03em;line-height:1.1}
+  .brand .name small{display:block;font-size:10px;font-weight:600;color:var(--muted);
+    letter-spacing:.28em;text-transform:uppercase;font-family:var(--mono)}
+  .topbar .grow{flex:1}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--txt2);
+    background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:5px 12px}
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(61,220,151,.5);animation:pulse 2.2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,151,.45)}70%{box-shadow:0 0 0 7px rgba(61,220,151,0)}100%{box-shadow:0 0 0 0 rgba(61,220,151,0)}}
+  .perf{height:3px;flex:none;background:repeating-linear-gradient(90deg,var(--acc) 0 2px,transparent 2px 14px);opacity:.55}
+
+  /* ---------- 导航 ---------- */
+  nav.tabs{display:flex;gap:2px;padding:0 16px;flex:none;border-bottom:1px solid var(--line)}
+  .tab{appearance:none;background:transparent;border:none;cursor:pointer;color:var(--txt2);
+    font:inherit;font-size:13px;display:flex;align-items:center;gap:8px;padding:11px 12px;
+    border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+  .tab .idx{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .tab:hover{color:var(--txt)}
+  .tab.active{color:var(--txt);border-color:var(--acc)}
+  .tab.active .idx{color:var(--acc)}
+  .tab .badge{font-family:var(--mono);font-size:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:99px;padding:0 6px;color:var(--txt2)}
+
+  /* ---------- 工作区 ---------- */
+  .workspace{flex:1;display:flex;min-height:0}
+  aside.bin{width:318px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;
+    background:rgba(16,19,26,.5);min-height:0}
+  main.main{flex:1;min-width:0;overflow:auto;padding:18px 20px 30px}
+  .view{display:none;animation:fadein .22s ease}
+  .view.active{display:block}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;margin-bottom:16px}
+  .card-h{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  .card-h .stepno{font-family:var(--mono);font-size:11px;color:var(--acc);background:rgba(255,179,64,.1);
+    border:1px solid rgba(255,179,64,.25);border-radius:7px;padding:2px 7px}
+  .card-h h2{margin:0;font-size:14px;font-weight:700;letter-spacing:.02em}
+  .card-h .sp{flex:1}
+  .hint{font-size:11.5px;color:var(--muted)}
+  .lbl{display:block;font-size:11.5px;color:var(--txt2);margin:0 0 5px;letter-spacing:.02em}
+  .inp,.sel{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s}
+  .inp:focus,.sel:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(255,179,64,.14)}
+  .inp::placeholder{color:var(--muted)}
+  .sel{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--txt2) 50%),linear-gradient(135deg,var(--txt2) 50%,transparent 50%);
+    background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px;cursor:pointer}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .row.grow>div{flex:1}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--txt);
+    font:inherit;font-size:13px;border-radius:9px;padding:8px 13px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;justify-content:center;transition:.14s}
+  .btn:hover:not(:disabled){border-color:rgba(148,163,184,.32);background:#1e2431}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.acc{background:linear-gradient(135deg,#ffb340,#ff9630);border-color:transparent;color:#1a0f02;font-weight:700}
+  .btn.acc:hover:not(:disabled){filter:brightness(1.07);background:linear-gradient(135deg,#ffc25e,#ffa04a)}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--err)}
+  .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+  .btn .ic{display:inline-grid;place-items:center}
+  .seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{appearance:none;border:none;background:transparent;color:var(--txt2);font:inherit;font-size:12px;
+    padding:5px 13px;border-radius:7px;cursor:pointer;transition:.13s}
+  .seg button.on{background:var(--acc);color:#1a0f02;font-weight:700}
+  .muted{color:var(--muted)}
+  .mono{font-family:var(--mono)}
+  .ok{color:var(--ok)} .err{color:var(--err)} .acc{color:var(--acc)}
+
+  /* ---------- 素材库 ---------- */
+  .bin-head{padding:14px 14px 8px;flex:none}
+  .bin-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--txt2);margin-bottom:10px}
+  .bin-title .ic{color:var(--acc)}
+  .searchbox{position:relative;margin-top:10px}
+  .searchbox svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
+  .searchbox .inp{padding-left:32px}
+  .media-list{flex:1;overflow:auto;padding:6px 8px 14px}
+  .m-item{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:9px;cursor:pointer;
+    border:1px solid transparent;transition:background .12s}
+  .m-item:hover{background:rgba(148,163,184,.08)}
+  .m-item.sel{background:rgba(255,179,64,.09);border-color:rgba(255,179,64,.35)}
+  .m-item .ic{flex:none;display:grid;place-items:center}
+  .m-item .ic.v{color:var(--acc)} .m-item .ic.a{color:var(--info)}
+  .m-item .nm{flex:1;min-width:0}
+  .m-item .nm .t{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-item .nm .p{font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .m-item .dur{font-family:var(--mono);font-size:11px;color:var(--txt2);flex:none}
+  .lib-kind{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.14em;
+    text-transform:uppercase;padding:10px 10px 4px}
+  .bin-foot{padding:10px 14px 14px;border-top:1px solid var(--line);flex:none}
+  .empty{border:1px dashed var(--line);border-radius:12px;padding:22px 14px;text-align:center;color:var(--muted);font-size:12.5px}
+  .empty b{color:var(--txt);font-weight:600}
+  .empty .ic{display:block;margin:0 auto 8px;opacity:.55}
+
+  /* ---------- 时间线片段 ---------- */
+  .clip-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel2);margin-bottom:7px;cursor:grab}
+  .clip-row.drag{opacity:.4}
+  .clip-row.sel{border-color:rgba(255,179,64,.6);background:rgba(255,179,64,.06);box-shadow:0 0 0 1px rgba(255,179,64,.25)}
+  .grip{color:var(--muted);cursor:grab}
+  .clip-row .idx{font-family:var(--mono);font-size:11px;color:var(--muted);width:18px;text-align:right}
+  .badge{font-family:var(--mono);font-size:10px;border-radius:6px;padding:2px 6px;font-weight:700;flex:none}
+  .badge.v{color:#1a0f02;background:linear-gradient(135deg,#ffb340,#ff9630)}
+  .badge.a{color:#07131f;background:linear-gradient(135deg,#6aa9ff,#4c8dff)}
+  .clip-row .nm{flex:1;min-width:0}
+  .clip-row .nm .t{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .clip-row .nm .p{font-size:10.5px;color:var(--muted);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tc{font-family:var(--mono);font-size:11.5px;color:var(--txt2);flex:none;text-align:right}
+  .tc b{color:var(--acc);font-weight:600}
+  .props{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:4px}
+
+  /* ---------- 输出/进度/日志 ---------- */
+  .progress{height:7px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;
+    overflow:hidden;position:relative}
+  .progress .bar{height:100%;width:0%;border-radius:99px;
+    background:linear-gradient(90deg,#ff8a3d,#ffd58a);transition:width .3s}
+  pre.log{font-family:var(--mono);font-size:11.5px;line-height:1.6;color:#b7e3c4;
+    background:#0a0d12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    height:148px;overflow:auto;margin:0;white-space:pre-wrap}
+  textarea.out{width:100%;min-height:96px;background:#0a0d12;color:var(--txt2);border:1px solid var(--line);
+    border-radius:10px;font-family:var(--mono);font-size:11px;padding:10px;resize:vertical}
+  video.pv{width:100%;max-height:300px;border-radius:12px;background:#000;display:block;margin-top:4px}
+  .statline{font-size:12.5px;min-height:20px;margin:8px 0 6px}
+  .outcard video{display:none}
+  .outcard.show video{display:block}
+
+  /* ---------- 文本字幕 ---------- */
+  .flow{display:grid;gap:16px}
+  .field{margin-bottom:0}
+  .rowchips{display:flex;gap:6px;flex-wrap:wrap}
+  .rowchips .chipc{font-family:var(--mono);font-size:11px;color:var(--txt2);background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:4px 9px}
+  .divider{height:1px;background:var(--line);margin:14px 0}
+
+  /* ---------- 模板 ---------- */
+  .tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .tpl{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:15px;cursor:pointer;
+    transition:border-color .15s,transform .12s}
+  .tpl:hover{border-color:rgba(255,179,64,.5);transform:translateY(-2px)}
+  .tpl.open{border-color:rgba(255,179,64,.7)}
+  .tpl .t{font-size:13.5px;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .tpl .d{font-size:12px;color:var(--txt2);margin:0 0 10px}
+  .tpl .meta{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .tpl form{display:grid;gap:9px;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px}
+
+  /* ---------- Toast ---------- */
+  #toasts{position:fixed;top:66px;right:16px;z-index:99;display:flex;flex-direction:column;gap:8px}
+  .toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:10px;padding:10px 13px;font-size:12.5px;box-shadow:var(--shadow);max-width:320px;
+    animation:tin .2s ease}
+  .toast.ok{border-left-color:var(--ok)} .toast.err{border-left-color:var(--err)}
+  @keyframes tin{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+
+  @media (max-width:1080px){
+    aside.bin{width:260px}
+    .grid4,.props{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" id="logoScissors"></span>
+      <span class="name">AUTOCUT<small>EDIT CONSOLE</small></span>
+    </div>
+    <div class="grow"></div>
+    <span class="chip"><span class="dot"></span>本地 MCP 服务 · ffmpeg 就绪</span>
+  </header>
+  <div class="perf"></div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="auto"><span class="idx">01</span>智能成片</button>
+    <button class="tab" data-view="timeline"><span class="idx">02</span>时间线<span class="badge" id="clipCount">0</span></button>
+    <button class="tab" data-view="text"><span class="idx">03</span>文本字幕</button>
+    <button class="tab" data-view="templates"><span class="idx">04</span>模板</button>
+    <button class="tab" data-view="grade"><span class="idx">05</span>调色</button>
+    <button class="tab" data-view="direct"><span class="idx">06</span>审片修片</button>
+  </nav>
+
+  <div class="workspace">
+    <!-- ======= 左：素材库 Bin ======= -->
+    <aside class="bin">
+      <div class="bin-head">
+        <div class="bin-title"><span class="ic" id="icFolder"></span>素材库 <span class="sp" style="flex:1"></span><span class="hint" id="libRoot">—</span></div>
+        <div class="row">
+          <input class="inp" id="rootInput" placeholder="素材根目录（任意路径）" style="flex:1" value="">
+          <button class="btn" id="btnScan" title="扫描目录">扫描</button>
+        </div>
+        <div class="searchbox">
+          <span id="icSearch"></span>
+          <input class="inp" id="mediaSearch" placeholder="筛选素材…">
+        </div>
+      </div>
+      <div class="media-list" id="mediaList"></div>
+      <div class="bin-foot">
+        <div class="m-item" id="mediaInfo" style="cursor:default;border:1px solid var(--line);margin-bottom:9px">
+          <span class="ic" id="icMediaInfo"></span>
+          <span class="nm"><span class="t" id="infoName" style="color:var(--muted)">未选择素材</span><span class="p" id="infoPath"></span></span>
+          <span class="dur" id="infoDur"></span>
+        </div>
+        <div class="row">
+          <div style="flex:1"><label class="lbl">入点/每段时长(秒)</label><input class="inp" type="number" id="clipDur" value="3" min="0.2" step="0.1"></div>
+          <button class="btn acc" id="btnAddClip">＋ 添加到时间线</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ======= 右：工作区 ======= -->
+    <main class="main">
+      <!-- 02 时间线 -->
+
+      <!-- 01 智能成片 (给不会剪辑的用户) -->
+      <section class="view active" id="view-auto">
+        <div class="card">
+          <div class="card-h"><span class="stepno">01</span><h2>一键智能成片</h2><span class="sp"></span>
+            <span class="hint">不会剪辑？选「视频 + 想要的效果」，点一下自动出成片</span></div>
+          <div class="flow">
+            <div>
+              <label class="lbl">① 想要什么效果</label>
+              <span class="seg" id="aeModeSeg">
+                <button data-v="talk" class="on">口播智能精简（推荐）</button>
+                <button data-v="clean">仅去静音</button>
+                <button data-v="beat">卡点混剪</button>
+              </span>
+              <span class="hint" id="aeModeHint" style="margin-left:10px">自动去静音 · 可删语气词 · 字幕随剪辑自动重排</span>
+            </div>
+            <div>
+              <label class="lbl">② 视频素材</label>
+              <div class="row">
+                <input class="inp" id="aeVideo" placeholder="在左侧素材库点选，或直接输入视频绝对路径" style="flex:1">
+                <button class="btn" id="aePickVideo">从素材库取</button>
+                <span class="hint mono" id="aeVideoMeta"></span>
+              </div>
+            </div>
+            <div id="aeTalkFields">
+              <label class="lbl">③ 可选增强（口播）</label>
+              <div class="row">
+                <input class="inp" id="aeSeg" placeholder="词级字幕 .segments.json（删语气词；文本字幕转写后自动填入）" style="flex:1">
+                <input class="inp" id="aeSubs" placeholder="成片字幕 SRT（自动重排后烧录，可选）" style="flex:1">
+              </div>
+              <div class="row" style="margin-top:8px">
+                <div style="flex:2"><label class="lbl">语气词</label><input class="inp" id="aeFillers" value="嗯,啊,呃,那个,这个,就是,然后,um,uh"></div>
+                <div style="flex:1"><label class="lbl">静音阈值(dB)</label><input class="inp" type="number" id="aeThr" value="-35"></div>
+                <div style="flex:1"><label class="lbl">最短静音(s)</label><input class="inp" type="number" id="aeMinSil" value="0.3" step="0.05"></div>
+                <div style="flex:1"><label class="lbl">边界(s)</label><input class="inp" type="number" id="aePad" value="0.15" step="0.05"></div>
+              </div>
+            </div>
+            <div id="aeBeatFields" style="display:none">
+              <label class="lbl">③ BGM（卡点用）</label>
+              <div class="row">
+                <input class="inp" id="aeBgm" placeholder="BGM 绝对路径（左侧选音频会自动填入）" style="flex:1">
+                <button class="btn" id="aePickBgm">从素材库取</button>
+              </div>
+              <div class="row" style="margin-top:8px">
+                <div style="flex:1"><label class="lbl">目标时长(秒)</label><input class="inp" type="number" id="aeTarget" value="30" min="5"></div>
+                <div><label class="lbl">节奏</label><span class="seg" id="aeBeatSeg"><button data-v="1" class="on">每1拍</button><button data-v="2">每2拍</button></span></div>
+              </div>
+            </div>
+            <div id="aeLookWrap">
+              <label class="lbl">成片调色（达芬奇风格 · 口播/去静音可用）</label>
+              <select class="sel" id="aeLook" style="width:300px">
+                <option value="none">原色（不调）</option>
+                <option value="vivid">鲜艳自然</option>
+                <option value="warm">暖阳</option>
+                <option value="cool">冷调</option>
+                <option value="soft">柔和</option>
+                <option value="food">美食暖色</option>
+                <option value="cinema" selected>电影感（青橙）</option>
+                <option value="bw">黑白</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:2px">
+              <button class="btn acc" id="btnAuto" style="font-size:14px;padding:11px 24px">▶ 一键生成成片</button>
+              <span class="hint">全程自动：检测静音 → 删语气词 → 按需重排字幕并烧录</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="stepno">✓</span><h2>成片结果</h2><span class="sp"></span>
+            <span class="hint mono" id="aeSummary"></span></div>
+          <p class="statline" id="aeStatus">等待开始…</p>
+          <div class="progress"><div class="bar" id="aeBar"></div></div>
+          <div style="height:10px"></div>
+          <pre class="log" id="aeLog">任务日志会显示在这里。</pre>
+          <div class="outcard" id="aeOut" style="margin-top:10px">
+            <video class="pv" id="aePreview" controls preload="metadata"></video>
+            <div class="row" style="margin-top:8px"><span class="hint mono" id="aeOutPath"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-timeline">
+        <div class="card">
+          <div class="card-h"><span class="stepno">02</span><h2>时间线</h2><span class="sp"></span>
+            <span class="hint mono" id="clipStats"></span>
+            <button class="btn ghost sm" id="btnClear">清空</button>
+          </div>
+          <div id="clipList"></div>
+          <div id="clipProps" style="display:none;margin-top:6px">
+            <div class="divider" style="margin:8px 0 12px"></div>
+            <label class="lbl">已选片段 · 属性（源内入点 / 时长 / 总起止）</label>
+            <div class="props" id="propFields"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><span class="stepno">R</span><h2>输出 &amp; 渲染</h2><span class="sp"></span>
+            <span class="hint">渲染产物可直接在下方预览</span></div>
+          <div class="grid4">
+            <div><label class="lbl">分辨率</label><div class="row"><input class="inp" type="number" id="outW" value="1920"><span class="muted">×</span><input class="inp" type="number" id="outH" value="1080"></div></div>
+            <div><label class="lbl">帧率 fps</label><input class="inp" type="number" id="outFps" value="25"></div>
+            <div><label class="lbl">输出文件名</label><input class="inp" id="outName" value="edit_result"></div>
+            <div style="display:flex;align-items:flex-end"><button class="btn acc" id="btnRender" style="width:100%">▶ 渲染成片</button></div>
+          </div>
+          <p class="statline" id="tlStatus">等待开始…</p>
+          <div class="progress"><div class="bar" id="tlBar"></div></div>
+          <div style="height:10px"></div>
+          <pre class="log" id="tlLog">任务日志会显示在这里。</pre>
+          <div class="outcard" id="tlOut">
+            <video class="pv" id="tlPreview" controls preload="metadata"></video>
+            <div class="row" style="margin-top:8px"><span class="hint mono" id="tlOutPath"></span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="stepno">⇄</span><h2>时间线 JSON</h2><span class="sp"></span>
+            <button class="btn sm" id="btnCopyJson">复制</button></div>
+          <textarea class="out" id="jsonOut" placeholder="渲染时生成的 timeline JSON 会显示在这里（可编辑后用于调试）"></textarea>
+        </div>
+      </section>
+
+      <!-- 03 文本字幕 -->
+      <section class="view" id="view-text">
+        <div class="card">
+          <div class="card-h"><span class="stepno">03</span><h2>文本剪辑 · 字幕驱动</h2><span class="sp"></span>
+            <span class="hint">AutoCut 式：字幕 → 选句 → 成片 / 烧录</span></div>
+          <div class="flow">
+            <div>
+              <label class="lbl">① 源视频</label>
+              <div class="row">
+                <input class="inp" id="tcVideo" placeholder="要剪辑的视频绝对路径（在素材库点选会自动填入）" style="flex:1">
+                <button class="btn" id="btnPickVideo">从素材库取</button>
+              </div>
+            </div>
+            <div>
+              <label class="lbl">② SRT 字幕</label>
+              <div class="row">
+                <input class="inp" id="tcSrt" placeholder="字幕路径；或先用「转写生成」" style="flex:1">
+                <select class="sel" id="tcModel" style="width:130px" title="Whisper 模型">
+                  <option value="tiny">tiny</option><option value="base">base</option>
+                  <option value="small" selected>small</option><option value="medium">medium</option><option value="large-v3">large-v3</option>
+                </select>
+                <button class="btn acc" id="btnTranscribe">🎙 转写生成字幕</button>
+              </div>
+              <div class="row" style="margin-top:6px"><span class="hint" id="tcSrtHint">首次转写会联网下载 whisper 模型，耗时较长</span></div>
+            </div>
+            <div>
+              <label class="lbl">③ 筛选规则</label>
+              <div class="row">
+                <span class="seg" id="tcModeSeg">
+                  <button data-v="keep" class="on">保留命中</button>
+                  <button data-v="drop">删除命中</button>
+                </span>
+                <select class="sel" id="tcMatch" style="width:150px">
+                  <option value="keywords">关键词</option>
+                  <option value="regex">正则</option>
+                  <option value="items">段索引</option>
+                </select>
+                <input class="inp" id="tcValue" placeholder="关键词用 | 或 , 分隔，如：要保留|精彩" style="flex:1">
+              </div>
+              <div class="row" style="margin-top:8px">
+                <div style="flex:1"><label class="lbl">边界扩充(秒)</label><input class="inp" type="number" id="tcPadding" value="0.2" step="0.05" min="0"></div>
+                <div style="flex:1"><label class="lbl">最短保留(秒)</label><input class="inp" type="number" id="tcMinDur" value="0" step="0.1" min="0"></div>
+                <button class="btn" id="btnPlan">① 规划（先看结果）</button>
+                <button class="btn acc" id="btnTextCut">② 文本剪辑成片</button>
+              </div>
+            </div>
+            <div>
+              <label class="lbl">④ 烧录字幕（可选，SRT→ASS→libass）</label>
+              <div class="grid4">
+                <div><label class="lbl">字体</label><input class="inp" id="tcFont" value="Microsoft YaHei"></div>
+                <div><label class="lbl">字号(0=自动)</label><input class="inp" type="number" id="tcFontSize" value="0" min="0"></div>
+                <div><label class="lbl">颜色</label><input class="inp" id="tcColor" value="#FFFFFF"></div>
+                <div style="display:flex;align-items:flex-end"><button class="btn" id="btnBurn">③ 烧录字幕</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="stepno">✓</span><h2>规划 / 结果</h2><span class="sp"></span>
+            <span class="hint mono" id="tcSummary"></span></div>
+          <p class="statline" id="tcStatus">等待开始…</p>
+          <div class="progress"><div class="bar" id="tcBar"></div></div>
+          <div style="height:10px"></div>
+          <div class="row" style="margin-bottom:8px">
+            <button class="btn sm" id="btnCopyPlan">复制 JSON</button>
+            <span class="hint">规划输出含 timeline，可直接交给 render_timeline</span>
+          </div>
+          <textarea class="out" id="tcPlanJson" style="min-height:130px" placeholder="规划/任务结果 JSON 显示在这里"></textarea>
+          <div style="height:12px"></div>
+          <pre class="log" id="tcLog">任务日志会显示在这里。</pre>
+          <div class="outcard" id="tcOut" style="margin-top:10px">
+            <video class="pv" id="tcPreview" controls preload="metadata"></video>
+            <div class="row" style="margin-top:8px"><span class="hint mono" id="tcOutPath"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 模板 -->
+      <section class="view" id="view-templates">
+        <div class="card">
+          <div class="card-h"><span class="stepno">04</span><h2>内置剪辑模板</h2><span class="sp"></span>
+            <span class="hint">点卡片展开参数 → 渲染</span></div>
+          <div class="tpl-grid" id="tplList"></div>
+        </div>
+        <div class="card" id="tplRunCard" style="display:none">
+          <div class="card-h"><span class="stepno">▶</span><h2 id="tplRunTitle">渲染</h2></div>
+          <p class="statline" id="tplStatus">等待开始…</p>
+          <div class="progress"><div class="bar" id="tplBar"></div></div>
+          <div style="height:10px"></div>
+          <pre class="log" id="tplLog">任务日志会显示在这里。</pre>
+          <div class="outcard" id="tplOut" style="margin-top:10px">
+            <video class="pv" id="tplPreview" controls preload="metadata"></video>
+            <div class="row" style="margin-top:8px"><span class="hint mono" id="tplOutPath"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 调色 (达芬奇风格) -->
+      <section class="view" id="view-grade">
+        <div class="card">
+          <div class="card-h"><span class="stepno">05</span><h2>调色 · 达芬奇风格</h2><span class="sp"></span>
+            <span class="hint">色温/色调/曝光/对比度/饱和度/伽马/晕影/颗粒 + 一键电影感预设；可加 .cube LUT</span></div>
+          <div class="flow">
+            <div>
+              <label class="lbl">① 视频素材</label>
+              <div class="row">
+                <input class="inp" id="grVideo" placeholder="在左侧素材库点选，或直接输入视频绝对路径" style="flex:1">
+                <button class="btn" id="grPick">从素材库取</button>
+                <span class="hint mono" id="grMeta"></span>
+              </div>
+            </div>
+            <div class="grid3">
+              <div><label class="lbl">风格预设</label>
+                <select class="sel" id="grPreset">
+                  <option value="none">原片（不调）</option>
+                  <option value="vivid">鲜艳自然</option>
+                  <option value="warm">暖阳</option>
+                  <option value="cool">冷调</option>
+                  <option value="soft">柔和</option>
+                  <option value="food">美食暖色</option>
+                  <option value="cinema" selected>电影感（青橙）</option>
+                  <option value="bw">黑白</option>
+                </select></div>
+              <div><label class="lbl">色温 K（0=不动，<6500暖 >6500冷）</label><input class="inp" type="number" id="grTemp" value="0" step="100"></div>
+              <div><label class="lbl">色调（-100绿 ~ +100品红）</label><input class="inp" type="number" id="grTint" value="0" step="5"></div>
+              <div><label class="lbl">曝光 %</label><input class="inp" type="number" id="grExpo" value="0" step="5"></div>
+              <div><label class="lbl">对比度 %</label><input class="inp" type="number" id="grContrast" value="0" step="5"></div>
+              <div><label class="lbl">饱和度 %</label><input class="inp" type="number" id="grSat" value="0" step="5"></div>
+              <div><label class="lbl">伽马（1=不动）</label><input class="inp" type="number" id="grGamma" value="1" step="0.05"></div>
+              <div><label class="lbl">晕影 %</label><input class="inp" type="number" id="grVig" value="0" step="5"></div>
+              <div><label class="lbl">胶片颗粒 %</label><input class="inp" type="number" id="grGrain" value="0" step="5"></div>
+              <div style="grid-column:1/-1"><label class="lbl">3D LUT（.cube 路径，可选）</label><input class="inp mono" id="grLut" placeholder="如 DaVinci 自带的 Film Looks Rec709 Kodak 2383 D65.cube"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <button class="btn acc" id="grApply" style="font-size:14px;padding:11px 24px">▶ 应用调色</button>
+              <span class="hint">手动参数为 0/1 时不覆盖预设；输出保留原音轨</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="stepno">✓</span><h2>调色结果</h2><span class="sp"></span>
+            <span class="hint mono" id="grSummary"></span></div>
+          <p class="statline" id="grStatus">等待开始…</p>
+          <div class="progress"><div class="bar" id="grBar"></div></div>
+          <div style="height:10px"></div>
+          <pre class="log" id="grLog">任务日志会显示在这里。</pre>
+          <div class="outcard" id="grOut" style="margin-top:10px">
+            <video class="pv" id="grPreview" controls preload="metadata"></video>
+            <div class="row" style="margin-top:8px"><span class="hint mono" id="grOutPath"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-direct">
+<style>
+  nav.tabs{overflow-x:auto;scrollbar-width:none}
+  nav.tabs::-webkit-scrollbar{display:none}
+  .tab{flex:none}
+  #view-direct #dirList{min-width:320px !important;flex:1 1 320px !important}
+  #view-direct #dirDetail{width:auto !important;max-width:none !important;flex:0 0 480px !important}
+  #view-direct::-webkit-scrollbar{height:10px}
+  #dirPlayer{width:100% !important}
+  @media (max-width:1080px){ aside.bin{width:250px} main.main{padding:12px 12px 22px} }
+  @media (max-width:860px){ aside.bin{display:none} }
+</style>
+
+        <div class="row" style="gap:8px;padding:10px 16px">
+          <button class="btn" id="btnDirReload">重新载入计划</button>
+          <button class="btn" id="btnDirSave">保存修改</button>
+          <button class="btn acc" id="btnDirRender">增量渲染(只重编改动镜头)</button>
+          <span class="hint" id="dirOut" style="align-self:center"></span>
+        </div>
+        <video id="dirPlayer" controls playsinline style="width:100%;max-height:300px;background:#000;display:none;padding:0 16px 8px;box-sizing:border-box" preload="metadata"></video>
+        <div class="hint mono" id="dirTime" style="display:none;padding:2px 16px 4px;color:var(--acc2)"></div>
+        
+  <div id="dirStrip" style="display:flex;gap:2px;padding:0 16px 8px;overflow-x:auto;border-bottom:1px solid var(--line)"></div>
+<div class="row" style="align-items:flex-start;gap:10px;padding:0 16px 12px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden">
+          <div style="flex:1;min-width:320px;border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:64vh;background:var(--panel)" id="dirList"></div>
+          <div style="width:480px;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:10px" id="dirDetail">
+            <div class="hint" id="dirEmpty">← 点击左侧镜头，可预览、换素材/时间窗、改景别后保存并增量渲染</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="toasts"></div>
+          <script src="/ui/app.js"></script>
+</body>
+</html>
