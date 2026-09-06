@@ -1,12 +1,18 @@
-[README.md](https://github.com/user-attachments/files/31889010/README.md)
-# Autocut MCP Plugin（通用自动剪辑 · Agent + 人机合剪）
+[README.md](https://github.com/user-attachments/files/31889142/README.md)
+# Autocut：通用自动剪辑引擎 · MCP Server · Web 人机合剪
 
-一个**给 AI Agent / MCP 客户端使用、并且带可视化“人机合剪”控制台**的通用自动剪辑工具包。
-不绑定任何素材库：所有工具都接收调用方给定的绝对路径，底层用 ffmpeg（`imageio-ffmpeg` 自带，含 libass），
-上层提供 MCP 工具、剪辑模板、多模态分析引擎与一个 Web 审片 UI。
+Autocut **不是“MCP”本身**，而是一套三合一的本地自动剪辑方案：
 
-> 定位：**AI 出分镜 → 人审分镜 → 增量渲染** 的人机合剪（不是“一键全自动出片”的玄学）。
+1. **剪辑引擎（engine/）**：转写、素材筛选(Triage)、说话人判定(TalkNet)、景别构图、多轨合成、调色、字幕——纯本地 ffmpeg，不依赖任何 MCP。
+2. **MCP Server（`autocut_mcp.py`）**：把引擎能力封装成 AI 可调用的工具（MCP 是 Anthropic 提出的开放协议，类似“AI 的 USB-C 接口”：写一次，任何支持 MCP 的 Agent/客户端都能连上使用）。
+3. **Web 审片 UI（`ui_app.py`）**：给人用的人机合剪台——AI 出分镜，人在页面里审片/改镜头，增量渲染只重编改动镜头。
+
+不绑定任何素材库：所有工具都接收调用方给定的绝对路径。
+
+> 工作定位：**AI 出分镜 → 人审分镜 → 增量渲染** 的人机合剪（不是“一键全自动出片”的玄学）。
 > 它把“从花絮里挑对 take、判断谁在说话、给什么景别、反应镜头放哪”拆成可检查、可修改、可量化的中间步骤。
+
+> 什么是 MCP：MCP(Model Context Protocol) 是一套让 AI 模型与外部工具/数据统一连接的开放标准；`autocut_mcp.py` 就是一个“提供剪辑工具的 MCP Server”，让支持 MCP 的 AI Agent 能直接调用剪辑能力。
 
 ## 特性
 
